@@ -5,7 +5,7 @@ services:
       context: ./
       dockerfile: Dockerfile.prod
     ports:
-      - "3123:3123"
+      - "127.0.0.1:3123:3123"
     restart: "unless-stopped"
     environment:
       - PYTHONUNBUFFERED=1

@@ -10,6 +10,7 @@ from yt_dlp import YoutubeDL
 from dotenv import load_dotenv
 
 regex_url = r'^https:\/\/[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(:[0-9]{1,5})?(\/.*)?$'
+regex_uuid = r'^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[1-5][a-fA-F0-9]{3}-[89abAB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$'
 accepted_file_types = ['mp4', 'webm', 'mov', 'mp3', 'aac', 'flac', 'wav', 'm4a', 'ogg', 'wma', 'opus']
 
 if os.getenv('ENV') == 'production':
@@ -134,8 +135,11 @@ async def upload():
     if re.match(regex_url, url) is None:
         return 'Invalid URL', 400
 
-    folder = data['folder']
     uuid = data['uuid']
+    if re.match(regex_uuid, uuid) is None:
+        return 'Invalid UUID', 400
+
+    folder = data['folder']
 
     thread = threading.Thread(target=download_send, args=(url, uuid, folder))
     thread.start()

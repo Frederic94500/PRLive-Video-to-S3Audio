@@ -87,13 +87,14 @@ def download_file(url: str, uuid: str):
         
         
 def upload_to_S3(folder: str, file: str):
+    print(f'Uploading {file} to S3')
     try:
         s3_client.upload_file(
             file,
             AWS_S3_BUCKET_NAME,
             f'{folder}/{file}'
         )
-        return f'{AWS_S3_STATIC_PAGE_URL}/{folder}/{file}'
+        print(f'{AWS_S3_STATIC_PAGE_URL}/{folder}/{file}')
     except Exception as e:
         print(e)
     
@@ -105,7 +106,7 @@ def download_send(url: str, uuid: str, folder: str):
         else:
             download_file(url, uuid)
             
-        print(upload_to_S3(folder, f'{uuid}.mp3'))
+        upload_to_S3(folder, f'{uuid}.mp3')
     except Exception as e:
         print(e)
     finally:
@@ -120,7 +121,7 @@ def index():
     return '<p>Index Page</p>'
   
 @app.route('/upload', methods=['POST'])
-async def upload():
+def upload():
     if not request.is_json:
         return 'Request is not JSON', 400
     

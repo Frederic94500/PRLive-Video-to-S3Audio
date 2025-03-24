@@ -1,0 +1,17 @@
+.git
+__pycache__
+*.pyc
+*.pyo
+*.log
+
+*.mp3
+*.webm
+*.mp4
+*.aac
+*.wav
+*.wma
+*.flac
+*.ogg
+*.m4a
+
+.venv

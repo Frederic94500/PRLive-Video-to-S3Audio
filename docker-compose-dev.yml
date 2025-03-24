@@ -1,0 +1,12 @@
+services:
+  prl-vts3a:
+    container_name: prl-vts3a
+    build:
+      context: ./
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3123:3123"
+    restart: "unless-stopped"
+    environment:
+      - PYTHONUNBUFFERED=1
+      

@@ -44,6 +44,9 @@ def download_yt(url: str, uuid: str):
         }],
     }
     
+    if os.path.exists('cookies.txt'):
+        yt_opts['cookiefile'] = 'cookies.txt'
+    
     try:
         with YoutubeDL(yt_opts) as ydl:
             ydl.download([url])

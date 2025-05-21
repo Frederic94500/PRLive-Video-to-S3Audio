@@ -1,11 +1,12 @@
+import json
 import os
 import re
+import signal
 import subprocess
-import threading
-from flask import Flask, request
 import boto3
 import requests
 from yt_dlp import YoutubeDL
+import pika
 
 from dotenv import load_dotenv
 
@@ -23,6 +24,16 @@ AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 AWS_REGION = os.getenv('AWS_REGION')
 AWS_S3_BUCKET_NAME = os.getenv('AWS_S3_BUCKET_NAME')
 AWS_S3_STATIC_PAGE_URL = os.getenv('AWS_S3_STATIC_PAGE_URL')
+
+params = pika.ConnectionParameters(
+    host=os.getenv('RABBITMQ_HOST'),
+    port=int(os.getenv('RABBITMQ_PORT')),
+    credentials=pika.PlainCredentials(
+        username=os.getenv('RABBITMQ_USER'),
+        password=os.getenv('RABBITMQ_PASSWORD')
+    )
+)
+
 
 s3_client = boto3.client(
     's3',
@@ -115,37 +126,85 @@ def download_send(url: str, uuid: str, folder: str):
     finally:
         if os.path.exists(f'{uuid}.mp3'):
             os.remove(f'{uuid}.mp3')
-    
+            
+def handle(body):
+    if not body:
+        raise ValueError('No body received')
+    data = body.decode()
 
-app = Flask(__name__)
-
-@app.route('/')
-def index():
-    return '<p>Index Page</p>'
-  
-@app.route('/upload', methods=['POST'])
-def upload():
-    if not request.is_json:
-        return 'Request is not JSON', 400
+    if not data:
+        raise ValueError('No data received')
+    if not isinstance(data, str):
+        raise ValueError('Data is not a string')
     
-    data = request.get_json()
+    try:
+        json_data = json.loads(data)
+    except json.JSONDecodeError:
+        raise ValueError('Invalid JSON format')
     
     required_fields = {'url': 'URL is required', 'folder': 'Folder is required', 'uuid': 'UUID is required'}
     for field, error_message in required_fields.items():
-        if not data.get(field):
-            return error_message, 400
-
-    url = data['url']
+        if not json_data.get(field):
+            raise ValueError(error_message)
+        
+    url = json_data['url']
     if re.match(regex_url, url) is None:
-        return 'Invalid URL', 400
+        raise ValueError(f'Invalid URL: {url}')
 
-    uuid = data['uuid']
+    uuid = json_data['uuid']
     if re.match(regex_uuid, uuid) is None:
-        return 'Invalid UUID', 400
+        raise ValueError(f'Invalid UUID: {uuid}')
 
-    folder = data['folder']
-
-    thread = threading.Thread(target=download_send, args=(url, uuid, folder))
-    thread.start()
+    folder = json_data['folder']
     
-    return "Success", 200
+    print(f'Processing {url} with UUID {uuid} in folder {folder}')
+    download_send(url, uuid, folder)
+    print(f'Processed data: {uuid}')
+    
+    
+def callback(ch, method, properties, body):
+    print('Received message')
+    try:
+        handle(body)
+    except Exception as e:
+        print(f'Error processing message: {e}')
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+        return
+    
+    ch.basic_ack(delivery_tag=method.delivery_tag)
+    
+
+def graceful_shutdown(signum, frame):
+    print(f'Received signal {signum}, shutting down gracefully...')
+    try:
+        channel.stop_consuming()
+        channel.close()
+        connection.close()
+        print('Connection closed')
+    except Exception as e:
+        print(f'Error during shutdown: {e}')
+    exit(0)
+
+
+if __name__ == '__main__':
+    connection = pika.BlockingConnection(params)
+    channel = connection.channel()
+    channel.queue_declare(queue='vts3a_convert_queue', durable=True)
+    
+    channel.basic_qos(prefetch_count=1)
+    channel.basic_consume(queue='vts3a_convert_queue', on_message_callback=callback)
+    
+    signal.signal(signal.SIGTERM, graceful_shutdown)
+    signal.signal(signal.SIGINT, graceful_shutdown)
+    
+    try:
+        print('Waiting for messages. To exit press CTRL+C')
+        channel.start_consuming()
+    except KeyboardInterrupt:
+        print('Exiting...')
+        channel.stop_consuming()
+        channel.close()
+        connection.close()
+        print('Connection closed')
+        print('Exiting...')
+        exit(0)

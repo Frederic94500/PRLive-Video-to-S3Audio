@@ -1,4 +1,4 @@
-FROM python:3.13.2-slim-bookworm
+FROM python:3.13.3-slim-bookworm
 
 ENV ENV development
 ENV TMPDIR=/tmp
@@ -19,4 +19,4 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:3123", "main:app"]
+CMD ["python", "main.py"]

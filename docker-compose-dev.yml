@@ -4,8 +4,6 @@ services:
     build:
       context: ./
       dockerfile: Dockerfile.dev
-    ports:
-      - "127.0.0.1:3123:3123"
     restart: "unless-stopped"
     environment:
       - PYTHONUNBUFFERED=1

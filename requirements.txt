@@ -1,6 +1,5 @@
 yt-dlp
 requests
-flask
 boto3
 python-dotenv
-gunicorn
+pika
